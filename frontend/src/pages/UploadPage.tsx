@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { 
   Upload, FileText, Image as ImageIcon, Headphones, Type, X, 
-  CheckCircle, Loader2, BookOpen, Sparkles
+  CheckCircle, Loader2, BookOpen, Sparkles, Mic, Square
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { generateLearning } from "@/api";
@@ -23,6 +23,8 @@ export default function UploadPage() {
   const [text, setText] = useState<string>("");
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
 
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [lastGeneratedSession, setLastGeneratedSession] = useState<any>(null);
@@ -43,6 +45,36 @@ export default function UploadPage() {
       setFile(droppedFile);
     }
   }, []);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+
+      recorder.ondataavailable = (e) => chunks.push(e.data);
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: "audio/webm" });
+        const file = new File([blob], `recording_${Date.now()}.webm`, { type: "audio/webm" });
+        setFile(file);
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Mic error:", err);
+      alert("Microphone access denied or not available.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder) {
+      mediaRecorder.stop();
+      mediaRecorder.stream.getTracks().forEach(track => track.stop());
+      setIsRecording(false);
+    }
+  };
 
   const handleFileSelect = () => {
     const input = document.createElement("input");
@@ -136,6 +168,31 @@ export default function UploadPage() {
               {dragActive ? "Drop it here!" : "Upload Study Material"}
             </p>
             <p className="text-sm text-muted-foreground mt-1">PDFs, Images, or Audio</p>
+          </div>
+
+          {/* Recording Option */}
+          <div className="flex items-center gap-4 animate-slide-up">
+            <Button
+              variant={isRecording ? "destructive" : "outline"}
+              size="lg"
+              className={`flex-1 h-16 rounded-2xl border-2 transition-all gap-3 ${
+                isRecording ? "animate-pulse" : "border-primary/20 hover:border-primary/50"
+              }`}
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={loading}
+            >
+              {isRecording ? (
+                <>
+                  <Square className="h-5 w-5 fill-current" />
+                  Stop Recording
+                </>
+              ) : (
+                <>
+                  <Mic className="h-5 w-5 text-primary" />
+                  Record Voice
+                </>
+              )}
+            </Button>
           </div>
 
           {/* File Preview */}

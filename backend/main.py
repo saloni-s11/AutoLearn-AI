@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, status
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from groq import Groq
@@ -64,6 +65,8 @@ db = client_db.study_studio
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+ELEVENLABS_VOICE_ID = "21m00Tcm4TlvDq8ikWAM" # Default voice 'Rachel'
 
 # Initialize Clients
 groq_client = Groq(api_key=GROQ_API_KEY)
@@ -297,6 +300,13 @@ async def learn(file: UploadFile = File(None), text: str = Form("")):
             if file.filename.lower().endswith(".pdf"):
                 pdf_reader = pypdf.PdfReader(io.BytesIO(file_content))
                 content += "\n" + "".join([p.extract_text() for p in pdf_reader.pages])
+            elif file.filename.lower().endswith((".mp3", ".wav", ".m4a", ".webm", ".flac", ".ogg")):
+                print(f"Transcribing audio: {file.filename}...")
+                transcription = groq_client.audio.transcriptions.create(
+                    file=(file.filename, file_content),
+                    model="whisper-large-v3",
+                )
+                content += "\n" + transcription.text
             else:
                 content += "\n" + file_content.decode("utf-8")
         except Exception as e: 
@@ -379,6 +389,82 @@ async def learn(file: UploadFile = File(None), text: str = Form("")):
         "research": research,
         "vocabulary": vocabulary
     }
+
+@app.post("/tts")
+async def text_to_speech(text: str = Form(...)):
+    if not ELEVENLABS_API_KEY:
+        raise HTTPException(status_code=500, detail="ElevenLabs API key not configured")
+    
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}"
+    headers = {
+        "xi-api-key": ELEVENLABS_API_KEY,
+        "Content-Type": "application/json"
+    }
+    data = {
+        "text": text,
+        "model_id": "eleven_monolingual_v1",
+        "voice_settings": {
+            "stability": 0.5,
+            "similarity_boost": 0.5
+        }
+    }
+    
+    try:
+        response = requests.post(url, json=data, headers=headers)
+        if response.status_code != 200:
+            print(f"ElevenLabs error: {response.text}")
+            raise HTTPException(status_code=response.status_code, detail="Error from ElevenLabs")
+            
+        return StreamingResponse(io.BytesIO(response.content), media_type="audio/mpeg")
+    except Exception as e:
+        print(f"TTS Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/roadmap")
+async def generate_roadmap(topic: str = Form(...), timeline: Optional[str] = Form(None)):
+    timeline_context = f"The entire roadmap MUST be structured to be completed within a total duration of: {timeline}." if timeline else "Determine an appropriate and realistic total duration based on the topic's depth."
+    
+    prompt = f"""
+    Create a professional academic roadmap to master the following topic: {topic}
+    {timeline_context}
+    
+    You MUST return a JSON object with this EXACT structure:
+    {{
+      "title": "Mastering {topic}",
+      "target": "A concise goal statement including the total estimated duration",
+      "milestones": [
+        {{
+          "step": 1,
+          "title": "Foundational Step",
+          "description": "Clear description of core concepts to learn.",
+          "time": "Est. duration for this specific step",
+          "level": "Beginner"
+        }}
+      ]
+    }}
+    REQUIREMENTS:
+    - Include 5-10 logical milestones.
+    - If a timeline was provided ({timeline if timeline else 'None'}), ensure the sum of specific milestone times aligns with it.
+    - Difficulty levels should progress (Beginner -> Intermediate -> Advanced).
+    - Content should be specific and actionable.
+    """
+    try:
+        print(f"Generating roadmap for: {topic}...")
+        response = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"}
+        )
+        data = json.loads(response.choices[0].message.content)
+        print("Roadmap generated successfully.")
+        return data
+    except Exception as e:
+        print(f"Roadmap generation failed: {str(e)}")
+        return {
+            "title": f"Path to {topic}",
+            "target": "Goal not generated",
+            "milestones": [{"step": 1, "title": "Error", "description": "Failed to generate roadmap", "time": "N/A", "level": "N/A"}]
+        }
 
 @app.post("/sessions/save")
 async def save_session(session_data: str = Form(...), user: str = Depends(get_current_user)):

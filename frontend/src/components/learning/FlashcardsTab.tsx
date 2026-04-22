@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, RotateCcw, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, RotateCcw, Sparkles, Volume2 } from "lucide-react";
+import { textToSpeech } from "@/api";
 
 interface Flashcard {
   front: string;
@@ -59,15 +60,29 @@ export default function FlashcardsTab({ flashcards }: FlashcardsTabProps) {
         <div className={`relative h-full w-full transition-transform duration-700 preserve-3d ${isFlipped ? "rotate-y-180" : ""}`} style={{ transformStyle: "preserve-3d" }}>
           {/* Front */}
           <div className="absolute inset-0 backface-hidden glass-card p-10 flex flex-col items-center justify-center text-center shadow-2xl border-2 border-primary/20 bg-gradient-to-br from-card to-background" style={{ backfaceVisibility: "hidden" }}>
-            <Sparkles className="h-8 w-8 text-primary/40 mb-6" />
-            <h3 className="text-2xl font-bold text-foreground leading-tight">{flashcards[currentCard].front}</h3>
+            <div className="flex flex-col items-center gap-6">
+              <h3 className="text-2xl font-bold text-foreground leading-tight">{flashcards[currentCard].front}</h3>
+              <button 
+                onClick={(e) => { e.stopPropagation(); textToSpeech(flashcards[currentCard].front); }}
+                className="h-10 w-10 rounded-full flex items-center justify-center bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all shadow-sm"
+              >
+                <Volume2 className="h-5 w-5" />
+              </button>
+            </div>
             <p className="mt-8 text-xs text-muted-foreground font-medium uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">Click to reveal answer</p>
           </div>
 
           {/* Back */}
           <div className="absolute inset-0 backface-hidden rotate-y-180 glass-card p-10 flex flex-col items-center justify-center text-center shadow-2xl border-2 border-secondary/20 bg-gradient-to-br from-secondary/10 to-background" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
-            <RotateCcw className="h-8 w-8 text-secondary/40 mb-6" />
-            <p className="text-xl font-medium text-foreground leading-relaxed">{flashcards[currentCard].back}</p>
+            <div className="flex flex-col items-center gap-6">
+              <p className="text-xl font-medium text-foreground leading-relaxed">{flashcards[currentCard].back}</p>
+              <button 
+                onClick={(e) => { e.stopPropagation(); textToSpeech(flashcards[currentCard].back); }}
+                className="h-10 w-10 rounded-full flex items-center justify-center bg-secondary/10 text-secondary hover:bg-secondary hover:text-white transition-all shadow-sm"
+              >
+                <Volume2 className="h-5 w-5" />
+              </button>
+            </div>
             <p className="mt-8 text-xs text-secondary font-bold uppercase tracking-widest">Click to flip back</p>
           </div>
         </div>

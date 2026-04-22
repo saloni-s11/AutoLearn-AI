@@ -1,3 +1,6 @@
+import { Volume2 } from "lucide-react";
+import { textToSpeech } from "@/api";
+
 interface Note {
   title: string;
   content: string;
@@ -25,7 +28,16 @@ export default function NotesTab({ notes }: NotesTabProps) {
           className="glass-card-hover p-8 animate-slide-up shadow-lg border-l-4 border-l-primary"
           style={{ opacity: 0, animationDelay: `${i * 0.1}s` }}
         >
-          <h3 className="font-heading font-bold text-foreground text-2xl mb-3">{note.title}</h3>
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <h3 className="font-heading font-bold text-foreground text-2xl">{note.title}</h3>
+            <button 
+              onClick={() => textToSpeech(note.title + ". " + note.content)}
+              className="h-10 w-10 rounded-full flex items-center justify-center bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all shadow-sm"
+              title="Listen to Note"
+            >
+              <Volume2 className="h-5 w-5" />
+            </button>
+          </div>
           <p className="text-foreground/80 leading-relaxed text-lg whitespace-pre-wrap">{note.content}</p>
           {note.tags && note.tags.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-6">

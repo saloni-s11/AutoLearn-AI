@@ -1,4 +1,4 @@
-import { Clock, FileText, Brain, Layers, Trash2, Search } from "lucide-react";
+import { Clock, FileText, Brain, Layers, Trash2, Search, Map } from "lucide-react";
 import { useStudy } from "@/context/StudyContext";
 import { useNavigate } from "react-router-dom";
 
@@ -8,7 +8,11 @@ export default function HistoryPage() {
 
   const handleSelectSession = (session: any) => {
     setCurrentSession(session);
-    navigate("/learning");
+    if (session.type === "Roadmap") {
+      navigate("/roadmap");
+    } else {
+      navigate("/learning");
+    }
   };
 
   const handleDelete = (e: React.MouseEvent, id: string) => {
@@ -54,8 +58,8 @@ export default function HistoryPage() {
               className="glass-card-hover group flex items-center gap-6 p-6 cursor-pointer animate-slide-up border-none shadow-lg hover:shadow-primary/5 bg-card/40 backdrop-blur-md"
               style={{ opacity: 0, animationDelay: `${i * 0.08}s` }}
             >
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-accent group-hover:bg-primary group-hover:text-white transition-all duration-500 text-2xl">
-                {item.type === "File Upload" ? "📄" : "✍️"}
+              <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-accent group-hover:text-white transition-all duration-500 text-2xl ${item.type === "Roadmap" ? "group-hover:bg-purple-500" : "group-hover:bg-primary"}`}>
+                {item.type === "File Upload" ? "📄" : item.type === "Roadmap" ? "🗺️" : "✍️"}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
@@ -64,7 +68,13 @@ export default function HistoryPage() {
                 </div>
                 <div className="flex items-center gap-4 text-xs text-muted-foreground font-medium">
                    <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {item.timestamp}</span>
-                   <span className="flex items-center gap-1"><Brain className="h-3 w-3" /> Full Study Suite</span>
+                   <span className="flex items-center gap-1">
+                      {item.type === "Roadmap" ? (
+                         <><Map className="h-3 w-3 text-purple-400" /> Professional Roadmap</>
+                      ) : (
+                         <><Brain className="h-3 w-3 text-primary" /> Full Study Suite</>
+                      )}
+                   </span>
                 </div>
               </div>
               <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

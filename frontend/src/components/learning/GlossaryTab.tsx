@@ -1,4 +1,5 @@
 import { Book, Volume2, Bookmark, Sparkles } from "lucide-react";
+import { textToSpeech } from "@/api";
 
 interface WordDefinition {
   word: string;
@@ -54,9 +55,18 @@ export default function GlossaryTab({ vocabulary }: GlossaryTabProps) {
                   </div>
                 )}
               </div>
-              <button className="h-12 w-12 rounded-2xl bg-muted/50 flex items-center justify-center hover:bg-primary hover:text-white transition-all">
-                <Bookmark className="h-5 w-5" />
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => textToSpeech(item.word + ". " + item.definition)}
+                  className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all shadow-sm"
+                  title="Listen to Definition"
+                >
+                  <Volume2 className="h-5 w-5" />
+                </button>
+                <button className="h-12 w-12 rounded-2xl bg-muted/50 flex items-center justify-center hover:bg-accent transition-all text-muted-foreground hover:text-foreground">
+                  <Bookmark className="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
             <div className="relative p-6 rounded-2xl bg-muted/30 border border-border/50">

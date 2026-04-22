@@ -9,6 +9,7 @@ import QuizPage from "./pages/QuizPage";
 import FlashcardsPage from "./pages/FlashcardsPage";
 import HistoryPage from "./pages/HistoryPage";
 import ResearchPage from "./pages/ResearchPage";
+import RoadmapPage from "./pages/RoadmapPage";
 import NotFound from "./pages/NotFound";
 
 export default function AuthWrapper() {
@@ -29,6 +30,7 @@ export default function AuthWrapper() {
           <Route path="/flashcards" element={<FlashcardsPage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/research" element={<ResearchPage />} />
+          <Route path="/roadmap" element={<RoadmapPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AppLayout>

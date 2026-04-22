@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Search, FileText, ExternalLink, User, Clock, ArrowRight, BookOpen, Quote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -18,14 +19,20 @@ export default function ResearchPage() {
   const [query, setQuery] = useState("");
   const [papers, setPapers] = useState<Paper[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchParams] = useSearchParams();
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) return;
+  useEffect(() => {
+    const q = searchParams.get("q");
+    if (q) {
+      setQuery(q);
+      performSearch(q);
+    }
+  }, [searchParams]);
 
+  const performSearch = async (searchTerm: string) => {
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/research/search?q=${encodeURIComponent(query)}`);
+      const response = await fetch(`http://localhost:8000/research/search?q=${encodeURIComponent(searchTerm)}`);
       if (!response.ok) throw new Error("Search failed");
       const data = await response.json();
       setPapers(data.papers);
@@ -38,6 +45,12 @@ export default function ResearchPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!query.trim()) return;
+    performSearch(query);
   };
 
   return (
