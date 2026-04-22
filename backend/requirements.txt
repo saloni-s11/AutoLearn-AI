@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+requests
+wikipedia
+pypdf
+groq
+python-dotenv
+google-api-python-client
+duckduckgo-search
+motor
+passlib[bcrypt]
+pyjwt
+python-multipart
+certifi
