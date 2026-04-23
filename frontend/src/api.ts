@@ -1,3 +1,18 @@
+import { toast } from "sonner";
+
+let currentAudio: HTMLAudioElement | null = null;
+
+export const stopSpeech = () => {
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+        currentAudio = null;
+    }
+    if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+    }
+};
+
 export const generateLearning = async (formData: FormData) => {
     try {
         const response = await fetch("http://localhost:8000/learn", {
@@ -15,6 +30,10 @@ export const generateLearning = async (formData: FormData) => {
 };
 
 export const textToSpeech = async (text: string) => {
+    // Stop any existing speech first
+    stopSpeech();
+
+    const loadingToast = toast.loading("Generating AI voice...");
     try {
         const formData = new FormData();
         formData.append("text", text);
@@ -24,15 +43,54 @@ export const textToSpeech = async (text: string) => {
             body: formData,
         });
 
-        if (!response.ok) throw new Error("TTS failed");
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: "TTS failed" }));
+            throw new Error(errorData.detail || "TTS failed");
+        }
 
         const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audio.play();
+        if (blob.size < 100) throw new Error("Audio generation failed (empty response)");
 
-    } catch (error) {
-        console.error("TTS Error:", error);
+        const url = URL.createObjectURL(blob);
+        currentAudio = new Audio(url);
+        
+        currentAudio.oncanplaythrough = () => {
+            toast.dismiss(loadingToast);
+            currentAudio?.play().catch(e => {
+                console.error("Playback failed:", e);
+                toast.error("Playback blocked by browser. Please interact with the page first.");
+            });
+        };
+
+        currentAudio.onended = () => {
+            currentAudio = null;
+        };
+
+        currentAudio.onerror = () => {
+            toast.dismiss(loadingToast);
+            currentAudio = null;
+            throw new Error("Audio playback error");
+        };
+
+    } catch (error: any) {
+        toast.dismiss(loadingToast);
+        console.warn("ElevenLabs failed, falling back to browser speech:", error);
+        
+        // Fallback to Native Browser Speech Synthesis
+        try {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            
+            const voices = window.speechSynthesis.getVoices();
+            const preferredVoice = voices.find(v => v.name.includes("Google US English") || v.name.includes("Female"));
+            if (preferredVoice) utterance.voice = preferredVoice;
+
+            window.speechSynthesis.speak(utterance);
+            toast.success("Using browser voice fallback", { duration: 2000 });
+        } catch (fallbackError) {
+            toast.error("Speech playback failed.");
+        }
     }
 };
 

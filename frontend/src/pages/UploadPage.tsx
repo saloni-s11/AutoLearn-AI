@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { 
   Upload, FileText, Image as ImageIcon, Headphones, Type, X, 
   CheckCircle, Loader2, BookOpen, Sparkles, Mic, Square
@@ -28,6 +28,9 @@ export default function UploadPage() {
 
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [lastGeneratedSession, setLastGeneratedSession] = useState<any>(null);
+  
+  const [liveTranscript, setLiveTranscript] = useState("");
+  const recognitionRef = useRef<any>(null);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -62,6 +65,33 @@ export default function UploadPage() {
       recorder.start();
       setMediaRecorder(recorder);
       setIsRecording(true);
+      setLiveTranscript("");
+
+      // Initialize Speech Recognition
+      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = "en-US";
+
+        recognition.onresult = (event: any) => {
+          let interimTranscript = "";
+          let finalTranscript = "";
+
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              finalTranscript += event.results[i][0].transcript;
+            } else {
+              interimTranscript += event.results[i][0].transcript;
+            }
+          }
+          setLiveTranscript(finalTranscript + interimTranscript);
+        };
+
+        recognition.start();
+        recognitionRef.current = recognition;
+      }
     } catch (err) {
       console.error("Mic error:", err);
       alert("Microphone access denied or not available.");
@@ -72,8 +102,17 @@ export default function UploadPage() {
     if (mediaRecorder) {
       mediaRecorder.stop();
       mediaRecorder.stream.getTracks().forEach(track => track.stop());
-      setIsRecording(false);
     }
+    
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      // Add the final transcript to the main text area
+      if (liveTranscript) {
+        setText(prev => prev ? `${prev}\n\n${liveTranscript}` : liveTranscript);
+      }
+    }
+    
+    setIsRecording(false);
   };
 
   const handleFileSelect = () => {
@@ -194,6 +233,19 @@ export default function UploadPage() {
               )}
             </Button>
           </div>
+
+          {/* Live Transcription Box */}
+          {isRecording && (
+            <div className="glass-card p-4 animate-fade-in border-primary/30 border-2 relative overflow-hidden">
+               <div className="absolute top-2 right-2 flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-red-500">Live</span>
+               </div>
+               <p className="text-sm font-medium text-foreground/70 italic leading-relaxed">
+                  {liveTranscript || "Listening..."}
+               </p>
+            </div>
+          )}
 
           {/* File Preview */}
           {file && (

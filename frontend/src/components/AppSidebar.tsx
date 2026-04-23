@@ -57,7 +57,7 @@ export function AppSidebar() {
           )}
         </div>
       </SidebarHeader>
-      
+
       <SidebarContent className="p-2 pt-4">
         <SidebarGroup>
           <SidebarGroupContent>
@@ -84,26 +84,26 @@ export function AppSidebar() {
       <SidebarFooter className="p-4 border-t border-border/50">
         {!isCollapsed ? (
           <div className="space-y-4">
-             <div className="flex items-center gap-3 p-3 rounded-2xl bg-muted/30 border border-border/50">
-                <div className="h-8 w-8 rounded-full gradient-primary-bg flex items-center justify-center text-xs text-white uppercase font-black">
-                   {user?.[0] || <UserIcon className="h-4 w-4" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                   <p className="text-sm font-black text-foreground truncate">{user || "Scholar"}</p>
-                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">Pro Account</p>
-                </div>
-             </div>
-             <button 
-                onClick={logout}
-                className="w-full h-11 flex items-center justify-center gap-2 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all duration-300 font-bold text-sm"
-             >
-                <LogOut className="h-4 w-4" />
-                <span>Logout</span>
-             </button>
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-muted/30 border border-border/50">
+              <div className="h-8 w-8 rounded-full gradient-primary-bg flex items-center justify-center text-xs text-white uppercase font-black">
+                {user?.[0] || <UserIcon className="h-4 w-4" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-black text-foreground truncate">{user || "Scholar"}</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">Pro Account</p>
+              </div>
+            </div>
+            <button
+              onClick={logout}
+              className="w-full h-11 flex items-center justify-center gap-2 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all duration-300 font-bold text-sm"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Logout</span>
+            </button>
           </div>
         ) : (
           <button onClick={logout} className="h-10 w-10 flex items-center justify-center rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all mx-auto">
-             <LogOut className="h-4 w-4" />
+            <LogOut className="h-4 w-4" />
           </button>
         )}
       </SidebarFooter>

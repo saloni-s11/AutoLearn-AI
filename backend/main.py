@@ -402,22 +402,25 @@ async def text_to_speech(text: str = Form(...)):
     }
     data = {
         "text": text,
-        "model_id": "eleven_monolingual_v1",
+        "model_id": "eleven_multilingual_v2",
         "voice_settings": {
             "stability": 0.5,
-            "similarity_boost": 0.5
+            "similarity_boost": 0.75,
+            "style": 0.0,
+            "use_speaker_boost": true
         }
     }
     
     try:
         response = requests.post(url, json=data, headers=headers)
         if response.status_code != 200:
-            print(f"ElevenLabs error: {response.text}")
-            raise HTTPException(status_code=response.status_code, detail="Error from ElevenLabs")
+            error_detail = response.json() if response.status_code != 404 else response.text
+            print(f"ELEVENLABS API ERROR [{response.status_code}]: {error_detail}")
+            raise HTTPException(status_code=response.status_code, detail=f"ElevenLabs Error: {error_detail}")
             
         return StreamingResponse(io.BytesIO(response.content), media_type="audio/mpeg")
     except Exception as e:
-        print(f"TTS Error: {str(e)}")
+        print(f"TTS Backend Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/roadmap")

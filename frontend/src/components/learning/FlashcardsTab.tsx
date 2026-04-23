@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, RotateCcw, Sparkles, Volume2 } from "lucide-react";
-import { textToSpeech } from "@/api";
+import { ChevronLeft, ChevronRight, RotateCcw, Sparkles, Volume2, Square } from "lucide-react";
+import { textToSpeech, stopSpeech } from "@/api";
 
 interface Flashcard {
   front: string;
@@ -62,12 +62,22 @@ export default function FlashcardsTab({ flashcards }: FlashcardsTabProps) {
           <div className="absolute inset-0 backface-hidden glass-card p-10 flex flex-col items-center justify-center text-center shadow-2xl border-2 border-primary/20 bg-gradient-to-br from-card to-background" style={{ backfaceVisibility: "hidden" }}>
             <div className="flex flex-col items-center gap-6">
               <h3 className="text-2xl font-bold text-foreground leading-tight">{flashcards[currentCard].front}</h3>
-              <button 
-                onClick={(e) => { e.stopPropagation(); textToSpeech(flashcards[currentCard].front); }}
-                className="h-10 w-10 rounded-full flex items-center justify-center bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all shadow-sm"
-              >
-                <Volume2 className="h-5 w-5" />
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); textToSpeech(flashcards[currentCard].front); }}
+                  className="h-10 w-10 rounded-full flex items-center justify-center bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all shadow-sm"
+                  title="Listen"
+                >
+                  <Volume2 className="h-5 w-5" />
+                </button>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); stopSpeech(); }}
+                  className="h-10 w-10 rounded-full flex items-center justify-center bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all shadow-sm"
+                  title="Stop"
+                >
+                  <Square className="h-4 w-4 fill-current" />
+                </button>
+              </div>
             </div>
             <p className="mt-8 text-xs text-muted-foreground font-medium uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">Click to reveal answer</p>
           </div>
@@ -76,12 +86,22 @@ export default function FlashcardsTab({ flashcards }: FlashcardsTabProps) {
           <div className="absolute inset-0 backface-hidden rotate-y-180 glass-card p-10 flex flex-col items-center justify-center text-center shadow-2xl border-2 border-secondary/20 bg-gradient-to-br from-secondary/10 to-background" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
             <div className="flex flex-col items-center gap-6">
               <p className="text-xl font-medium text-foreground leading-relaxed">{flashcards[currentCard].back}</p>
-              <button 
-                onClick={(e) => { e.stopPropagation(); textToSpeech(flashcards[currentCard].back); }}
-                className="h-10 w-10 rounded-full flex items-center justify-center bg-secondary/10 text-secondary hover:bg-secondary hover:text-white transition-all shadow-sm"
-              >
-                <Volume2 className="h-5 w-5" />
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); textToSpeech(flashcards[currentCard].back); }}
+                  className="h-10 w-10 rounded-full flex items-center justify-center bg-secondary/10 text-secondary hover:bg-secondary hover:text-white transition-all shadow-sm"
+                  title="Listen"
+                >
+                  <Volume2 className="h-5 w-5" />
+                </button>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); stopSpeech(); }}
+                  className="h-10 w-10 rounded-full flex items-center justify-center bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all shadow-sm"
+                  title="Stop"
+                >
+                  <Square className="h-4 w-4 fill-current" />
+                </button>
+              </div>
             </div>
             <p className="mt-8 text-xs text-secondary font-bold uppercase tracking-widest">Click to flip back</p>
           </div>
