@@ -1,173 +1,130 @@
 
 # 🚀 AutoLearn AI Studio
 
-### 🧠 Autonomous Multimodal Learning Platform
+### Intelligent Multimodal Learning Platform
 
-> Transform **PDFs, text, audio, and visual content** into structured knowledge — instantly.
-
----
-
-## ✨ What Makes This Different?
-
-**AutoLearn AI Studio** is not just a notes generator — it’s a **complete AI-powered learning ecosystem**.
-
-It combines:
-
-* 🧠 Generative AI *(Llama 3.3 via Groq)*
-* 🔎 Retrieval-Augmented Generation *(RAG)*
-* 🎥 Multimedia intelligence
-* 🎤 Voice interaction
-* 📄 Multi-document reasoning
-
-👉 **Result:** Deep understanding, not just summaries
+AutoLearn AI Studio is an AI-powered system that transforms raw learning content into **structured, interactive study material**. It enables users to upload PDFs, text, and other inputs, and instantly receive organized notes, quizzes, and enriched learning resources.
 
 ---
 
-## 🖥️ Product Preview
+## 📌 Overview
 
-📸 *(Add your screenshot here)*
+Traditional tools stop at summarization. AutoLearn extends this by combining **content understanding, enrichment, and interaction** into a unified learning workflow.
+
+The platform converts unstructured input into meaningful knowledge while enhancing it with **multimedia and research-backed context**.
 
 ---
 
-## 🔥 Core Features
+## 🧠 How It Works
 
-### 📥 Multimodal Input System
+```mermaid
+graph TD
+A[User Uploads Content] --> B[AI Processing Engine]
+B --> C[Structured Notes]
+B --> D[Quiz Generation]
+B --> E[Flashcards]
+B --> F[Mind Map]
+B --> G[Video & Research Enrichment]
 
-Upload and learn from:
+C --> H[Learning Dashboard]
+D --> H
+E --> H
+F --> H
+G --> H
 
-* 📄 PDFs
-* 📝 Raw text
-* 🎤 Audio *(speech → learning)*
-* 🖼️ Images *(via Computer Vision / OCR)*
+H --> I[Exam Mode]
+H --> J[Voice Tutor]
+```
+
+---
+
+## ✨ Key Features
+
+### 📥 Multimodal Input
+
+* Upload **PDFs** or paste **text content**
+* Automatic extraction and processing
 
 ---
 
 ### 📚 AI Learning Suite
 
-Auto-generates:
+Automatically generates:
 
-* 📖 Structured Notes *(7–10 chapters)*
-* ❓ Quiz *(MCQs)*
-* 🧠 Flashcards
-* 📘 Technical Glossary
+* **Structured Notes** (chapter-wise)
+* **MCQ-based Quizzes**
+* **Flashcards**
+* **Glossary of key terms**
 
 ---
 
-### 🎯 Exam Mode *(MCQ-Based)*
+### 🎯 Exam Mode
 
-Practice like real exams:
-
-* Difficulty Levels:
+* Practice with **MCQ-based assessments**
+* Difficulty levels:
 
   * Easy
   * Medium
   * Hard
-
-* Features:
-
-  * ❓ Multiple Choice Questions (MCQs)
-  * 🧠 AI-generated questions from your content
-  * 📊 Instant scoring & feedback
+* Designed for quick evaluation and revision
 
 ---
 
-### 🎥 Video Intelligence
+### 🎥 Multimedia Enrichment
 
-* Fetches relevant YouTube videos
-* One-click:
+* Fetches relevant **YouTube educational videos**
+* Enhances learning with:
 
-  * ✨ Video summary
-  * 📌 Key highlights
-  * 🎯 Learning points
-
----
-
-### 🎤 Voice AI Tutor
-
-* Ask doubts using voice
-* AI responds with:
-
-  * Text
-  * 🔊 Speech *(ElevenLabs integration)*
-
-👉 Enables **hands-free learning**
+  * Visual explanations
+  * Contextual resources
 
 ---
 
-### 📄 Multi-Document Intelligence
+### 🎤 Voice-Enabled Learning
 
-* Upload multiple PDFs
-* Cross-document understanding
-* Unified output:
-
-  * 📖 Notes
-  * ❓ Answers
-  * 💡 Insights
+* Convert notes into **audio playback**
+* Enables hands-free learning
 
 ---
 
-### 🧠 Adaptive Learning Engine
+### 🧠 Mind Map Generation
 
-Real AI behavior:
-
-* Tracks user learning patterns
-* Dynamically adjusts:
-
-  * Difficulty
-  * Content depth
-  * Question complexity
+* Visual representation of concepts
+* Helps in quick revision and concept linking
+* Exportable with study material
 
 ---
 
-### 🧩 Interactive Mind Maps
+### 🔍 Research Integration
 
-* Auto-generated visual learning maps
-* Click nodes → Ask AI deeper questions
-* Clean, screen-fit UI
-* 📄 Export included in PDF
+* Integrated with:
 
----
+  * Semantic Scholar
+  * arXiv
+* Provides:
 
-### 🔍 Research Hub
-
-Integrated with:
-
-* Semantic Scholar
-* arXiv
-
-Provides:
-
-* 📄 Research papers
-* 🧾 Abstracts
-* 🔗 References
+  * Paper summaries
+  * References for deeper exploration
 
 ---
 
 ### 📤 Share & Export
 
-* 🔗 Share via link
-* 📄 Export structured PDF
-
-Includes:
-
-* Notes
-* Quiz
-* Mindmap
+* Share sessions via link
+* Export structured content as **clean, readable PDFs**
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ System Architecture
 
 ```
 Frontend (React + Vite)
         ↓
 FastAPI Backend
         ↓
-AI Engine (Groq - Llama 3.3)
+AI Processing Layer (Groq - Llama 3.3)
         ↓
-RAG Pipeline (LangChain / LangGraph)
-        ↓
-External APIs + MongoDB
+RAG + External APIs + MongoDB
 ```
 
 ---
@@ -187,13 +144,12 @@ External APIs + MongoDB
 * MongoDB (Motor)
 * JWT Authentication
 
-### 🧠 AI & Intelligence
+### 🧠 AI & Processing
 
-* Groq (Llama 3.3 70B)
-* LangChain / LangGraph
-* RAG Pipeline
+* Groq (Llama 3.3)
+* RAG-based enrichment pipeline
 
-### 🔌 APIs
+### 🔌 Integrations
 
 * YouTube Data API
 * Pexels API
@@ -202,11 +158,10 @@ External APIs + MongoDB
 * Wikipedia
 * DuckDuckGo
 * Free Dictionary API
-* ElevenLabs *(Voice AI)*
 
 ---
 
-## 🚀 Setup Guide
+## 🚀 Getting Started
 
 ### 1️⃣ Clone Repository
 
@@ -231,7 +186,7 @@ pip install -r requirements.txt
 
 ### 3️⃣ Environment Variables
 
-Create `.env` file:
+Create a `.env` file:
 
 ```
 GROQ_API_KEY=
@@ -262,10 +217,10 @@ npm run dev
 
 ---
 
-## 🌐 How It Works
+## 🔄 Workflow
 
-1. Upload content *(PDF / Text / Audio / Image)*
-2. AI processes and structures content
+1. Upload content (PDF/Text)
+2. AI processes and extracts information
 3. Generates:
 
    * Notes
@@ -276,40 +231,36 @@ npm run dev
    * Videos
    * Images
    * Research data
-5. Interact via:
+5. User can:
 
-   * Chat
-   * Voice AI
-6. Test knowledge with Exam Mode
-7. Export or share
+   * Study
+   * Practice
+   * Export or share
 
 ---
 
 ## 📊 Use Cases
 
-* 🎓 Students *(Engineering, Medical, etc.)*
-* 📚 Competitive exam preparation
-* 🔬 Researchers
-* 💼 Professionals upskilling
+* Students (engineering, medical, etc.)
+* Competitive exam preparation
+* Self-learning and revision
+* Technical concept understanding
 
 ---
 
 ## ⚠️ Limitations
 
-* Requires internet connection
+* Requires internet connectivity
 * Dependent on external APIs
-* Possible AI latency
-* Limited offline functionality
+* Performance may vary for large documents
 
 ---
 
-## 🔮 Future Scope
+## 🔮 Future Enhancements
 
-* 👥 Real-time collaboration
-* 📱 Mobile application
-* 📊 Learning analytics dashboard
-* 🧠 Advanced personalization AI
-* 🌐 Offline AI capabilities
+* Additional exam formats (subjective, case-based)
+* Advanced personalization
+* Real-time collaboration
+* Mobile application
 
----
 
