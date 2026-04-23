@@ -25,7 +25,7 @@ export default function ResearchPage() {
 
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/research/search?q=${encodeURIComponent(query)}`);
+      const response = await fetch(`/api/research/search?q=${encodeURIComponent(query)}`);
       if (!response.ok) throw new Error("Search failed");
       const data = await response.json();
       setPapers(data.papers);

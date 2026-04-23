@@ -9,6 +9,7 @@ import {
   Search,
   LogOut,
   User as UserIcon,
+  Map,
 } from "lucide-react";
 import {
   Sidebar,
@@ -29,6 +30,7 @@ const menuItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Upload Content", url: "/upload", icon: Upload },
   { title: "My Learning", url: "/learning", icon: BookOpen },
+  { title: "Personal Roadmap", url: "/roadmap", icon: Map },
   { title: "Research Search", url: "/research", icon: Search },
   { title: "Quiz & Practice", url: "/quiz", icon: HelpCircle },
   { title: "Flashcards", url: "/flashcards", icon: Layers },

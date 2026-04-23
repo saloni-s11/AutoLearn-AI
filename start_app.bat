@@ -1,0 +1,6 @@
+@echo off
+echo Starting AutoLearn AI Studio...
+start cmd /k "cd backend && uvicorn main:app --reload --port 8000"
+start cmd /k "cd frontend && npm run dev"
+echo Backend running on http://localhost:8000
+echo Frontend starting...

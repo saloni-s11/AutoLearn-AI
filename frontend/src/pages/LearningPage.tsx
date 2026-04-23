@@ -1,10 +1,11 @@
-import { useState, useMemo } from "react";
-import { BookOpen, Brain, Layers, MessageSquare, Video, Globe, Link as LinkIcon, Compass } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { BookOpen, Brain, Layers, MessageSquare, Video, Globe, Link as LinkIcon, Compass, Map } from "lucide-react";
 import NotesTab from "@/components/learning/NotesTab";
 import QuizTab from "@/components/learning/QuizTab";
 import FlashcardsTab from "@/components/learning/FlashcardsTab";
 import GlossaryTab from "@/components/learning/GlossaryTab";
 import ChatTab from "@/components/learning/ChatTab";
+import RoadmapTab from "@/components/learning/RoadmapTab";
 import { useStudy } from "@/context/StudyContext";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -12,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 const tabs = [
   { id: "notes", label: "Notes", icon: BookOpen, emoji: "📘" },
   { id: "quiz", label: "Quiz", icon: Brain, emoji: "🧠" },
+  { id: "roadmap", label: "Roadmap", icon: Map, emoji: "🗺️" },
   { id: "glossary", label: "Glossary", icon: BookOpen, emoji: "📚" },
   { id: "flashcards", label: "Flashcards", icon: Layers, emoji: "🎴" },
   { id: "multimedia", label: "Multimedia", icon: Compass, emoji: "🎨" },
@@ -19,9 +21,14 @@ const tabs = [
 ];
 
 export default function LearningPage() {
-  const [activeTab, setActiveTab] = useState("notes");
-  const { currentSession } = useStudy();
   const navigate = useNavigate();
+  const searchParams = new URLSearchParams(window.location.search);
+  const topicParam = searchParams.get("topic");
+
+  // If we arrived via a "Start Learning" button from Roadmap, 
+  // default to the multimedia tab.
+  const [activeTab, setActiveTab] = useState(topicParam ? "multimedia" : "notes");
+  const { currentSession } = useStudy();
 
   const studyData = useMemo(() => {
     if (!currentSession?.data?.result) return null;
@@ -33,7 +40,17 @@ export default function LearningPage() {
     }
   }, [currentSession]);
 
-  if (!currentSession) {
+  // Special handling for topical/quick sessions (from Roadmap)
+  const quickTopicData = useMemo(() => {
+    if (currentSession) return null;
+    if (!topicParam) return null;
+    return {
+      topic: topicParam,
+      isQuick: true
+    };
+  }, [currentSession, topicParam]);
+
+  if (!currentSession && !quickTopicData) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6 text-center p-6 animate-fade-in">
         <div className="h-20 w-20 rounded-full bg-accent flex items-center justify-center">
@@ -51,6 +68,44 @@ export default function LearningPage() {
       </div>
     );
   }
+
+  // Define effective session for UI (real session or quick topic)
+  const [quickEnrichment, setQuickEnrichment] = useState<any>(null);
+  const [enrichmentLoading, setEnrichmentLoading] = useState(false);
+
+  useEffect(() => {
+    if (quickTopicData && !quickEnrichment && !enrichmentLoading) {
+      const fetchEnrichment = async () => {
+        setEnrichmentLoading(true);
+        try {
+          const response = await fetch(`/api/research/search?q=${encodeURIComponent(quickTopicData.topic)}`);
+          const data = await response.json();
+          // Also fetch youtube videos for the quick topic
+          // Since we don't have a direct youtube endpoint for this yet, 
+          // we'll just use the papers for now or I can add a quick one.
+          setQuickEnrichment({
+            research: { papers: data.papers || [] },
+            videos: [] // Can expand this later
+          });
+        } catch (e) {
+          console.error("Quick Enrichment Failed", e);
+        } finally {
+          setEnrichmentLoading(false);
+        }
+      };
+      fetchEnrichment();
+    }
+  }, [quickTopicData, quickEnrichment, enrichmentLoading]);
+
+  const displaySession = currentSession || {
+     data: { 
+        topic: topicParam, 
+        isQuick: true,
+        research: quickEnrichment?.research || { papers: [] },
+        videos: quickEnrichment?.videos || []
+     },
+     title: topicParam || "Quick Mastery"
+  };
 
   return (
     <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-8 pb-32">
@@ -72,6 +127,7 @@ export default function LearningPage() {
         {tabs.map((tab) => (
           <button
             key={tab.id}
+            id={`tab-${tab.id}`}
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold whitespace-nowrap transition-all duration-300 ${
               activeTab === tab.id
@@ -88,7 +144,16 @@ export default function LearningPage() {
       {/* Tab Content */}
       <div className="animate-fade-in transition-all duration-500" key={activeTab}>
         {activeTab === "notes" && <NotesTab notes={studyData?.notes || []} />}
-        {activeTab === "quiz" && <QuizTab quiz={studyData?.quiz || []} />}
+        {activeTab === "quiz" && (
+          <QuizTab 
+            quiz={studyData?.quiz || []} 
+            topic={currentSession.title} 
+            onNavigateToRoadmap={() => setActiveTab("roadmap")}
+          />
+        )}
+        {activeTab === "roadmap" && (
+          <RoadmapTab onNavigateToMultimedia={() => setActiveTab("multimedia")} />
+        )}
         {activeTab === "glossary" && <GlossaryTab vocabulary={currentSession.data.vocabulary || []} />}
         {activeTab === "flashcards" && <FlashcardsTab flashcards={studyData?.flashcards || []} />}
         
@@ -164,6 +229,29 @@ export default function LearningPage() {
                 </div>
               </div>
             </section>
+
+            {/* Academic Papers */}
+            <section className="space-y-4">
+               <div className="flex items-center gap-3">
+                 <Layers className="h-5 w-5 text-amber-500" />
+                 <h3 className="text-xl font-bold text-foreground">Academic Research Vault</h3>
+               </div>
+               <div className="grid grid-cols-1 gap-4">
+                  {currentSession.data.research?.papers?.map((paper: any, idx: number) => (
+                    <a key={idx} href={paper.url} target="_blank" rel="noreferrer" className="glass-card p-6 flex flex-col gap-2 hover:border-amber-500/50 transition-all group">
+                       <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Scientific Paper</span>
+                          <Globe className="h-4 w-4 text-muted-foreground group-hover:text-amber-500 transition-colors" />
+                       </div>
+                       <h4 className="font-bold text-foreground group-hover:text-primary transition-colors">{paper.title}</h4>
+                       <p className="text-xs text-muted-foreground line-clamp-2">{paper.snippet}</p>
+                    </a>
+                  ))}
+                  {(!currentSession.data.research?.papers || currentSession.data.research.papers.length === 0) && (
+                    <p className="text-sm text-muted-foreground italic">Searching for peer-reviewed citations...</p>
+                  )}
+               </div>
+            </section>
           </div>
         )}
 
@@ -172,3 +260,4 @@ export default function LearningPage() {
     </div>
   );
 }
+

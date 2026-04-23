@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import DashboardPage from "./pages/DashboardPage";
 import UploadPage from "./pages/UploadPage";
 import LearningPage from "./pages/LearningPage";
+import RoadmapPage from "./pages/RoadmapPage";
 import QuizPage from "./pages/QuizPage";
 import FlashcardsPage from "./pages/FlashcardsPage";
 import HistoryPage from "./pages/HistoryPage";
@@ -25,6 +26,7 @@ export default function AuthWrapper() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/upload" element={<UploadPage />} />
           <Route path="/learning" element={<LearningPage />} />
+          <Route path="/roadmap" element={<RoadmapPage />} />
           <Route path="/quiz" element={<QuizPage />} />
           <Route path="/flashcards" element={<FlashcardsPage />} />
           <Route path="/history" element={<HistoryPage />} />
