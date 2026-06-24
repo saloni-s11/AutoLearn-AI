@@ -9,17 +9,24 @@ interface Session {
   data: any;
 }
 
+interface QuizStats {
+  totalCorrect: number;
+  totalQuestions: number;
+}
+
 interface StudyContextType {
   currentSession: Session | null;
   sessions: Session[];
   user: string | null;
   token: string | null;
+  quizStats: QuizStats;
   setCurrentSession: (session: Session) => void;
   addSession: (session: Session) => void;
   removeSession: (id: string) => void;
   saveSessionToDb: (session: Session) => Promise<void>;
   login: (token: string, username: string) => void;
   logout: () => void;
+  recordQuizResult: (correct: number, total: number) => void;
 }
 
 const StudyContext = createContext<StudyContextType | undefined>(undefined);
@@ -29,6 +36,14 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [currentSession, setCurrentSessionState] = useState<Session | null>(null);
   const [user, setUser] = useState<string | null>(localStorage.getItem("study_user"));
   const [token, setToken] = useState<string | null>(localStorage.getItem("study_token"));
+  const [quizStats, setQuizStats] = useState<QuizStats>(() => {
+    try {
+      const stored = localStorage.getItem("quiz_stats");
+      return stored ? JSON.parse(stored) : { totalCorrect: 0, totalQuestions: 0 };
+    } catch {
+      return { totalCorrect: 0, totalQuestions: 0 };
+    }
+  });
 
   const fetchSessions = async (authToken: string) => {
     try {
@@ -66,6 +81,17 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSessions([]);
     localStorage.removeItem("study_token");
     localStorage.removeItem("study_user");
+  };
+
+  const recordQuizResult = (correct: number, total: number) => {
+    setQuizStats(prev => {
+      const updated = {
+        totalCorrect: prev.totalCorrect + correct,
+        totalQuestions: prev.totalQuestions + total,
+      };
+      localStorage.setItem("quiz_stats", JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const addSession = (session: Session) => {
@@ -114,9 +140,9 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   return (
     <StudyContext.Provider value={{ 
-      currentSession, sessions, user, token,
+      currentSession, sessions, user, token, quizStats,
       setCurrentSession, addSession, removeSession, saveSessionToDb, 
-      login, logout 
+      login, logout, recordQuizResult
     }}>
       {children}
     </StudyContext.Provider>

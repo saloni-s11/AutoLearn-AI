@@ -24,13 +24,22 @@ import bcrypt
 # Load environment variables
 load_dotenv()
 
-# Configuration
-SECRET_KEY = os.getenv("JWT_SECRET", "study_studio_super_secret_key_123")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
+# Configuration and Auth
+from auth import (
+    SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES,
+    oauth2_scheme, verify_password, get_password_hash,
+    create_access_token, get_current_user
+)
+from routers.mindmap import router as mindmap_router
+from routers.exam import router as exam_router
+
 MONGODB_URL = os.getenv("MONGODB_URL", "").strip('"').strip("'")
 
 app = FastAPI()
+
+# Register Routers
+app.include_router(mindmap_router)
+app.include_router(exam_router)
 
 # ✅ CORS
 app.add_middleware(
@@ -49,8 +58,6 @@ app.add_middleware(
 )
 
 # 🔒 Security & DB Init
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
-
 # MongoDB Client
 import certifi
 client_db = AsyncIOMotorClient(
@@ -60,6 +67,7 @@ client_db = AsyncIOMotorClient(
     connectTimeoutMS=10000
 )
 db = client_db.study_studio
+app.state.db = db
 
 # 🔑 API Keys
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -70,31 +78,6 @@ ELEVENLABS_VOICE_ID = "21m00Tcm4TlvDq8ikWAM" # Default voice 'Rachel'
 
 # Initialize Clients
 groq_client = Groq(api_key=GROQ_API_KEY)
-
-# --- Auth Helpers ---
-def verify_password(plain_password, hashed_password):
-    if isinstance(hashed_password, str):
-        hashed_password = hashed_password.encode('utf-8')
-    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password)
-
-def get_password_hash(password):
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
-def create_access_token(data: dict):
-    to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-async def get_current_user(token: str = Depends(oauth2_scheme)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        return username
-    except:
-        raise HTTPException(status_code=401, detail="Could not validate credentials")
 
 # --- Original Multi-modal Functions (Untouched for consistency) ---
 
@@ -407,7 +390,7 @@ async def text_to_speech(text: str = Form(...)):
             "stability": 0.5,
             "similarity_boost": 0.75,
             "style": 0.0,
-            "use_speaker_boost": true
+            "use_speaker_boost": True
         }
     }
     

@@ -1,10 +1,11 @@
 import { useState, useMemo } from "react";
-import { BookOpen, Brain, Layers, MessageSquare, Video, Globe, Link as LinkIcon, Compass } from "lucide-react";
+import { BookOpen, Brain, Layers, MessageSquare, Video, Globe, Link as LinkIcon, Compass, Network } from "lucide-react";
 import NotesTab from "@/components/learning/NotesTab";
 import QuizTab from "@/components/learning/QuizTab";
 import FlashcardsTab from "@/components/learning/FlashcardsTab";
 import GlossaryTab from "@/components/learning/GlossaryTab";
 import ChatTab from "@/components/learning/ChatTab";
+import MindmapTab from "@/components/learning/MindmapTab";
 import { useStudy } from "@/context/StudyContext";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -15,6 +16,7 @@ const tabs = [
   { id: "glossary", label: "Glossary", icon: BookOpen, emoji: "📚" },
   { id: "flashcards", label: "Flashcards", icon: Layers, emoji: "🎴" },
   { id: "multimedia", label: "Multimedia", icon: Compass, emoji: "🎨" },
+  { id: "mindmap", label: "Mind Map", icon: Network, emoji: "🗺️" },
   { id: "chat", label: "Chat", icon: MessageSquare, emoji: "💬" },
 ];
 
@@ -88,9 +90,15 @@ export default function LearningPage() {
       {/* Tab Content */}
       <div className="animate-fade-in transition-all duration-500" key={activeTab}>
         {activeTab === "notes" && <NotesTab notes={studyData?.notes || []} />}
-        {activeTab === "quiz" && <QuizTab quiz={studyData?.quiz || []} />}
+        {activeTab === "quiz" && (
+          <QuizTab
+            quiz={studyData?.quiz || []}
+            notesContent={studyData?.notes?.map((n: any) => `${n.title}\n${n.content}`).join("\n\n") || ""}
+          />
+        )}
         {activeTab === "glossary" && <GlossaryTab vocabulary={currentSession.data.vocabulary || []} />}
         {activeTab === "flashcards" && <FlashcardsTab flashcards={studyData?.flashcards || []} />}
+        {activeTab === "mindmap" && <MindmapTab notes={studyData?.notes || []} />}
         
         {activeTab === "multimedia" && (
           <div className="space-y-12">

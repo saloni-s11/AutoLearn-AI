@@ -10,6 +10,7 @@ import {
   LogOut,
   User as UserIcon,
   Map,
+  GraduationCap,
 } from "lucide-react";
 import {
   Sidebar,
@@ -34,6 +35,7 @@ const menuItems = [
   { title: "Quiz & Practice", url: "/quiz", icon: HelpCircle },
   { title: "Roadmap", url: "/roadmap", icon: Map },
   { title: "Flashcards", url: "/flashcards", icon: Layers },
+  { title: "Exam", url: "/exam", icon: GraduationCap },
   { title: "History", url: "/history", icon: History },
 ];
 

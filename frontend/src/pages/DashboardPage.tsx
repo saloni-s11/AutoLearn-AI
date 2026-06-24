@@ -5,12 +5,16 @@ import { useStudy } from "@/context/StudyContext";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { sessions, user } = useStudy();
+  const { sessions, user, quizStats } = useStudy();
+
+  const quizAccuracy = quizStats.totalQuestions > 0
+    ? `${Math.round((quizStats.totalCorrect / quizStats.totalQuestions) * 100)}%`
+    : "0%";
 
   const stats = [
     { label: "Lessons Completed", value: sessions.length.toString(), icon: BookOpen, color: "text-primary" },
-    { label: "Quiz Accuracy", value: sessions.length > 0 ? "87%" : "0%", icon: Target, color: "text-secondary" },
-    { label: "Study Streak", value: sessions.length > 0 ? "1 day" : "0 days", icon: Zap, color: "text-amber-500" },
+    { label: "Quiz Accuracy", value: quizAccuracy, icon: Target, color: "text-secondary" },
+    // { label: "Study Streak", value: sessions.length > 0 ? "1 day" : "0 days", icon: Zap, color: "text-amber-500" },
     { label: "AI Insights", value: (sessions.length * 42).toString(), icon: Brain, color: "text-primary" },
   ];
 
@@ -22,7 +26,7 @@ export default function DashboardPage() {
       <section className="gradient-bg rounded-3xl p-8 md:p-12 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-72 h-72 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-secondary/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-        
+
         <div className="relative z-10 max-w-2xl">
           <div className="flex items-center gap-2 mb-4">
             <Sparkles className="h-5 w-5 text-primary animate-pulse" />
@@ -63,15 +67,15 @@ export default function DashboardPage() {
         <h2 className="font-heading text-xl font-semibold text-foreground mb-4">Recent Activity</h2>
         {sessions.length === 0 ? (
           <div className="glass-card p-12 text-center border-dashed border-2">
-             <p className="text-muted-foreground font-medium">No learning materials yet. Start by uploading a file!</p>
+            <p className="text-muted-foreground font-medium">No learning materials yet. Start by uploading a file!</p>
           </div>
         ) : (
           <div className="grid md:grid-cols-3 gap-4">
             {recentSessions.map((item, i) => (
-              <div 
-                key={item.id} 
-                className="glass-card-hover p-5 cursor-pointer animate-slide-up" 
-                style={{ opacity: 0, animationDelay: `${0.1 * (i + 1)}s` }} 
+              <div
+                key={item.id}
+                className="glass-card-hover p-5 cursor-pointer animate-slide-up"
+                style={{ opacity: 0, animationDelay: `${0.1 * (i + 1)}s` }}
                 onClick={() => {
                   // If we click it, set it as current and go to learning
                   navigate("/learning");

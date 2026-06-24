@@ -113,3 +113,121 @@ export const generateRoadmap = async (topic: string, timeline?: string) => {
         return null;
     }
 };
+
+export const generateMindMap = async (content: string) => {
+    try {
+        const response = await fetch("http://localhost:8000/mindmap/generate", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ content }),
+        });
+
+        if (!response.ok) {
+            throw new Error("Failed to generate mind map");
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error("MindMap API Error:", error);
+        return null;
+    }
+};
+
+export const generateExam = async (
+  content: string,
+  examType: string,
+  difficulty: string,
+  numberOfQuestions: number
+) => {
+  try {
+    const response = await fetch("http://localhost:8000/exam/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        content,
+        exam_type: examType,
+        difficulty,
+        number_of_questions: numberOfQuestions,
+      }),
+    });
+    if (!response.ok) throw new Error("Failed to generate exam");
+    return await response.json();
+  } catch (error) {
+    console.error("Generate Exam Error:", error);
+    return null;
+  }
+};
+
+export const getNextAdaptiveQuestion = async (
+  content: string,
+  currentDifficulty: string,
+  lastCorrect: boolean,
+  askedQuestions: string[]
+) => {
+  try {
+    const response = await fetch("http://localhost:8000/exam/adaptive/next", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        content,
+        current_difficulty: currentDifficulty,
+        last_correct: lastCorrect,
+        asked_questions: askedQuestions,
+      }),
+    });
+    if (!response.ok) throw new Error("Failed to get next adaptive question");
+    return await response.json();
+  } catch (error) {
+    console.error("Adaptive Question Error:", error);
+    return null;
+  }
+};
+
+export const submitExamAnalytics = async (
+  token: string,
+  answers: any[],
+  durationSeconds: number,
+  title?: string
+) => {
+  try {
+    const response = await fetch("http://localhost:8000/exam/analytics", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        answers,
+        duration_seconds: durationSeconds,
+        title,
+      }),
+    });
+    if (!response.ok) throw new Error("Failed to submit exam analytics");
+    return await response.json();
+  } catch (error) {
+    console.error("Submit Exam Analytics Error:", error);
+    return null;
+  }
+};
+
+export const getExamHistory = async (token: string) => {
+  try {
+    const response = await fetch("http://localhost:8000/exam/history", {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) throw new Error("Failed to fetch exam history");
+    return await response.json();
+  } catch (error) {
+    console.error("Exam History Error:", error);
+    return null;
+  }
+};

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { useStudy } from "@/context/StudyContext";
 
 interface QuizItem {
   question: string;
@@ -9,14 +10,18 @@ interface QuizItem {
 
 interface QuizTabProps {
   quiz: QuizItem[];
+  notesContent?: string;
 }
 
-export default function QuizTab({ quiz }: QuizTabProps) {
+export default function QuizTab({ quiz: initialQuiz, notesContent }: QuizTabProps) {
+  const { recordQuizResult, currentSession } = useStudy();
+  const [quiz, setQuiz] = useState<QuizItem[]>(initialQuiz);
   const [currentQ, setCurrentQ] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [score, setScore] = useState(0);
   const [answered, setAnswered] = useState(0);
   const [showResults, setShowResults] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   if (!quiz || quiz.length === 0) {
     return (
@@ -40,6 +45,9 @@ export default function QuizTab({ quiz }: QuizTabProps) {
       setSelected(null);
       setCurrentQ(c => c + 1);
     } else {
+      // Record this attempt before showing results
+      const finalScore = selected === q.correct ? score + 1 : score;
+      recordQuizResult(finalScore, quiz.length);
       setShowResults(true);
     }
   };
@@ -52,6 +60,42 @@ export default function QuizTab({ quiz }: QuizTabProps) {
     setShowResults(false);
   };
 
+  const loadMoreQuestions = async () => {
+    if (!currentSession) return;
+    setLoadingMore(true);
+    try {
+      // Use notes content if available, otherwise fall back to the session title
+      const content = notesContent || currentSession.title || "";
+
+      const formData = new FormData();
+      formData.append("text", content);
+
+      const res = await fetch("http://localhost:8000/learn", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error("Failed to fetch more questions");
+
+      const data = await res.json();
+      const parsed = JSON.parse(data.result);
+      const newQuiz: QuizItem[] = parsed?.quiz || [];
+
+      if (newQuiz.length === 0) throw new Error("No questions returned");
+
+      setQuiz(newQuiz);
+      setCurrentQ(0);
+      setSelected(null);
+      setScore(0);
+      setAnswered(0);
+      setShowResults(false);
+    } catch (err) {
+      console.error("More questions error:", err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   if (showResults) {
     return (
       <div className="glass-card p-12 text-center space-y-6 animate-fade-in">
@@ -62,12 +106,26 @@ export default function QuizTab({ quiz }: QuizTabProps) {
           <h2 className="text-3xl font-bold text-foreground">Quiz Complete!</h2>
           <p className="text-muted-foreground">You scored {score} out of {quiz.length}</p>
         </div>
-        <div className="pt-4">
+        <div className="pt-4 flex flex-wrap gap-4 justify-center">
           <button
             onClick={restartQuiz}
-            className="px-8 py-3 rounded-2xl gradient-primary-bg text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-all"
+            className="px-8 py-3 rounded-2xl border-2 border-primary text-primary font-bold hover:bg-primary/10 hover:scale-105 transition-all"
           >
             Try Again 🔄
+          </button>
+          <button
+            onClick={loadMoreQuestions}
+            disabled={loadingMore}
+            className="px-8 py-3 rounded-2xl gradient-primary-bg text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {loadingMore ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              "More Questions ✨"
+            )}
           </button>
         </div>
       </div>
