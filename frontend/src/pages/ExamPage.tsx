@@ -62,6 +62,10 @@ export default function ExamPage() {
   const [askedQuestionTexts, setAskedQuestionTexts] = useState<string[]>([]);
   const [adaptiveLoading, setAdaptiveLoading] = useState(false);
 
+  // Accumulates ALL questions ever asked across every attempt for this session
+  // Using a ref so it persists without triggering re-renders
+  const allAskedQuestionsRef = useRef<string[]>([]);
+
   // Result state
   const [results, setResults] = useState<AnalyticsResult | null>(null);
 
@@ -115,16 +119,27 @@ export default function ExamPage() {
     try {
       // For adaptive exam, we start with generating just 1 initial question
       const startCount = examType === "adaptive" ? 1 : questionCount;
-      const data = await generateExam(contentString, examType, difficulty, startCount);
+
+      // Pass the full history of previously asked questions so the LLM avoids repeating them
+      const data = await generateExam(
+        contentString,
+        examType,
+        difficulty,
+        startCount,
+        allAskedQuestionsRef.current
+      );
 
       if (data && data.questions && data.questions.length > 0) {
         setQuestions(data.questions);
-        setAskedQuestionTexts([data.questions[0].question]);
-        
+
+        // Track this attempt's questions in both state (for adaptive) and the persistent ref
+        const newTexts = data.questions.map((q: any) => q.question as string);
+        setAskedQuestionTexts(newTexts);
+        allAskedQuestionsRef.current = [...allAskedQuestionsRef.current, ...newTexts];
+
         // Start timers
         startTimeRef.current = Date.now();
         if (examType === "timed") {
-          // 60 seconds per question limit
           const totalSeconds = questionCount * 60;
           setTimeRemaining(totalSeconds);
           startTimer();
@@ -185,7 +200,9 @@ export default function ExamPage() {
 
       if (nextQ && nextQ.question) {
         setQuestions(prev => [...prev, nextQ.question]);
-        setAskedQuestionTexts(prev => [...prev, nextQ.question.question]);
+        const newText = nextQ.question.question as string;
+        setAskedQuestionTexts(prev => [...prev, newText]);
+        allAskedQuestionsRef.current = [...allAskedQuestionsRef.current, newText];
         setCurrentDifficulty(nextQ.difficulty);
         setCurrentQuestionIdx(prev => prev + 1);
       } else {

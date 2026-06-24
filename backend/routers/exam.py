@@ -39,6 +39,7 @@ class GenerateRequest(BaseModel):
     difficulty: Difficulty = "medium"
     number_of_questions: int = Field(10, ge=1, le=30)
     topic: str | None = None
+    asked_questions: list[str] = []   # questions already seen — never repeat these
 
 
 class AdaptiveNextRequest(BaseModel):
@@ -61,21 +62,50 @@ DIFFICULTY_GUIDE = {
 }
 
 
-def _build_prompt(content: str, n: int, diff: Difficulty, topic: str | None, mock: bool) -> str:
+def _build_prompt(
+    content: str,
+    n: int,
+    diff: Difficulty,
+    topic: str | None,
+    mock: bool,
+    asked_questions: list[str] | None = None,
+) -> str:
     topic_line = f"Focus ONLY on the topic: {topic}\n" if topic else ""
     mock_note = "This is a MOCK exam: no hints, mix difficulties, realistic.\n" if mock else ""
-    return f"""Generate {n} multiple-choice questions from the content.
+
+    avoid_block = ""
+    if asked_questions:
+        sample = asked_questions[-40:]
+        avoid_block = (
+            "\n\nIMPORTANT — The following questions have ALREADY been asked. "
+            "Do NOT repeat them or ask anything semantically similar. "
+            "Generate completely different questions covering unexplored aspects of the content:\n"
+            + "\n".join(f"- {q}" for q in sample)
+            + "\n"
+        )
+
+    return f"""Generate {n} multiple-choice questions from the content below.
 Difficulty: {diff} ({DIFFICULTY_GUIDE[diff]}).
-{topic_line}{mock_note}
-Return STRICT JSON:
+{topic_line}{mock_note}{avoid_block}
+CRITICAL RULES:
+- Each "options" array MUST contain 4 full answer strings — actual text, not letters like "A", "B", "C", "D".
+- "correct" is the 0-based index (0, 1, 2, or 3) of the correct option in the array.
+- Every option must be a complete, meaningful answer relevant to the question.
+
+Return STRICT JSON matching this exact structure (replace the example values with real content):
 {{
   "questions": [
     {{
-      "question": "...",
-      "options": ["A", "B", "C", "D"],
+      "question": "What is the primary function of mitochondria?",
+      "options": [
+        "To produce energy in the form of ATP",
+        "To store genetic information",
+        "To synthesize proteins from amino acids",
+        "To regulate cell division"
+      ],
       "correct": 0,
-      "explanation": "why this answer is correct",
-      "topic": "short topic tag",
+      "explanation": "Mitochondria are known as the powerhouse of the cell because they generate ATP through cellular respiration.",
+      "topic": "Cell Biology",
       "difficulty": "{diff}"
     }}
   ]
@@ -83,6 +113,28 @@ Return STRICT JSON:
 
 Content:
 \"\"\"{content[:8000]}\"\"\""""
+
+
+def _sanitize_questions(questions: list[dict]) -> list[dict]:
+    """Remove any question where options are placeholder letters instead of real text."""
+    BAD_PATTERNS = {"a", "b", "c", "d", "option a", "option b", "option c", "option d"}
+    good = []
+    for q in questions:
+        options = q.get("options", [])
+        # Flag if any option is a single letter or matches a known placeholder
+        if any(str(opt).strip().lower() in BAD_PATTERNS for opt in options):
+            print(f"[Exam Sanitizer] Rejected bad options in question: {q.get('question', '')[:60]}")
+            continue
+        # Flag if options aren't strings or are empty
+        if not all(isinstance(opt, str) and len(opt.strip()) > 2 for opt in options):
+            print(f"[Exam Sanitizer] Rejected malformed options: {options}")
+            continue
+        # Ensure exactly 4 options
+        if len(options) != 4:
+            print(f"[Exam Sanitizer] Rejected wrong option count ({len(options)})")
+            continue
+        good.append(q)
+    return good
 
 
 import asyncio
@@ -95,7 +147,7 @@ async def _llm_json(prompt: str) -> dict:
                 {"role": "system", "content": "You output strict JSON only, no markdown."},
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.5,
+            temperature=0.8,   # higher = more variety across attempts
             response_format={"type": "json_object"},
         )
     
@@ -114,12 +166,27 @@ async def generate_exam(req: GenerateRequest):
         req.difficulty,
         req.topic,
         mock=(req.exam_type == "mock"),
+        asked_questions=req.asked_questions,
     )
     data = await _llm_json(prompt)
-    questions = data.get("questions", [])
+    questions = _sanitize_questions(data.get("questions", []))
+
+    # Retry once if sanitizer wiped everything out (LLM used placeholder letters)
     if not questions:
-        raise HTTPException(500, "No questions generated")
-    return {"exam_type": req.exam_type, "difficulty": req.difficulty, "questions": questions}
+        print("[Exam] All questions failed sanitization — retrying with stricter prompt.")
+        data = await _llm_json(prompt)
+        questions = _sanitize_questions(data.get("questions", []))
+
+    if not questions:
+        raise HTTPException(500, "No valid questions generated. Please try again.")
+
+    # Server-side dedup against previously asked questions
+    asked_lower = {q.lower().strip() for q in req.asked_questions}
+    fresh = [q for q in questions if q.get("question", "").lower().strip() not in asked_lower]
+    if not fresh:
+        fresh = questions  # edge case: all were dupes, return anyway
+
+    return {"exam_type": req.exam_type, "difficulty": req.difficulty, "questions": fresh}
 
 
 @router.post("/adaptive/next")
@@ -132,13 +199,20 @@ async def adaptive_next(req: AdaptiveNextRequest):
         idx -= 1
     new_diff: Difficulty = order[idx]  # type: ignore
 
-    prompt = _build_prompt(req.content, 1, new_diff, None, mock=False)
-    if req.asked_questions:
-        prompt += f"\n\nAvoid these already-asked questions:\n" + "\n".join(req.asked_questions[-10:])
+    prompt = _build_prompt(
+        req.content, 1, new_diff, None, mock=False,
+        asked_questions=req.asked_questions if req.asked_questions else None,
+    )
     data = await _llm_json(prompt)
-    qs = data.get("questions", [])
+    qs = _sanitize_questions(data.get("questions", []))
+
+    # Retry once if sanitizer rejected the question
     if not qs:
-        raise HTTPException(500, "No question generated")
+        data = await _llm_json(prompt)
+        qs = _sanitize_questions(data.get("questions", []))
+
+    if not qs:
+        raise HTTPException(500, "No valid adaptive question generated.")
     return {"difficulty": new_diff, "question": qs[0]}
 
 

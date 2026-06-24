@@ -6,6 +6,11 @@ import wikipedia
 import pypdf
 import json
 import xml.etree.ElementTree as ET
+import smtplib
+import secrets
+import string
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 
@@ -18,6 +23,8 @@ from dotenv import load_dotenv
 from googleapiclient.discovery import build
 from duckduckgo_search import DDGS
 from motor.motor_asyncio import AsyncIOMotorClient
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
 import jwt
 import bcrypt
 
@@ -76,51 +83,155 @@ PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 ELEVENLABS_VOICE_ID = "21m00Tcm4TlvDq8ikWAM" # Default voice 'Rachel'
 
+# 📧 Email (SMTP) config for forgot-password
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+
+# 🔵 Google OAuth
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+
 # Initialize Clients
 groq_client = Groq(api_key=GROQ_API_KEY)
 
 # --- Original Multi-modal Functions (Untouched for consistency) ---
 
-def get_academic_papers(query: str, limit: int = 10):
+def _fetch_semantic_scholar(query: str, limit: int) -> list:
+    ss_api_key = os.getenv("SEMANTIC_SCHOLAR_API_KEY", "")
+    headers_ss = {"x-api-key": ss_api_key} if ss_api_key else {}
     try:
-        url = f"https://api.semanticscholar.org/graph/v1/paper/search?query={query}&limit={limit}&fields=title,authors,year,abstract,url,openAccessPdf,citationCount"
-        response = requests.get(url, timeout=5)
+        url = (
+            f"https://api.semanticscholar.org/graph/v1/paper/search"
+            f"?query={requests.utils.quote(query)}&limit={limit}"
+            f"&fields=title,authors,year,abstract,url,openAccessPdf,citationCount"
+        )
+        response = requests.get(url, headers=headers_ss, timeout=15)
         if response.status_code == 200:
-            data = response.json()
             papers = []
-            for item in data.get("data", []):
+            for item in response.json().get("data", []):
+                title = item.get("title") or ""
+                if not title:
+                    continue
                 papers.append({
-                    "title": item.get("title"),
-                    "authors": [a.get("name") for a in item.get("authors", [])],
+                    "title": title,
+                    "authors": [a.get("name", "") for a in item.get("authors", [])],
                     "year": item.get("year"),
-                    "abstract": item.get("abstract"),
-                    "url": item.get("url"),
+                    "abstract": item.get("abstract") or "",
+                    "url": item.get("url") or "",
                     "pdf": item.get("openAccessPdf", {}).get("url") if item.get("openAccessPdf") else None,
                     "citations": item.get("citationCount", 0),
-                    "source": "Semantic Scholar"
+                    "source": "Semantic Scholar",
                 })
-            if papers: return papers
-    except: pass
+            return papers
+        else:
+            print(f"[Semantic Scholar] HTTP {response.status_code}: {response.text[:200]}")
+    except Exception as e:
+        print(f"[Semantic Scholar] Failed: {e}")
+    return []
 
+
+def _fetch_crossref(query: str, limit: int) -> list:
     try:
-        arxiv_url = f"http://export.arxiv.org/api/query?search_query=all:{query}&start=0&max_results={limit}"
-        response = requests.get(arxiv_url, timeout=5)
+        url = (
+            f"https://api.crossref.org/works"
+            f"?query={requests.utils.quote(query)}&rows={limit}"
+            f"&select=title,author,published,abstract,URL,is-referenced-by-count"
+        )
+        response = requests.get(
+            url,
+            headers={"User-Agent": "AutoLearnAI/1.0 (mailto:autolearn@example.com)"},
+            timeout=15,
+        )
+        if response.status_code == 200:
+            papers = []
+            for item in response.json().get("message", {}).get("items", []):
+                title = (item.get("title") or [""])[0]
+                if not title:
+                    continue
+                authors = [
+                    f"{a.get('given', '')} {a.get('family', '')}".strip()
+                    for a in item.get("author", [])
+                ]
+                pub = item.get("published", {}).get("date-parts", [[None]])[0]
+                year = pub[0] if pub else None
+                papers.append({
+                    "title": title,
+                    "authors": authors,
+                    "year": year,
+                    "abstract": item.get("abstract") or "",
+                    "url": item.get("URL") or "",
+                    "pdf": None,
+                    "citations": item.get("is-referenced-by-count", 0),
+                    "source": "CrossRef",
+                })
+            return papers
+        else:
+            print(f"[CrossRef] HTTP {response.status_code}")
+    except Exception as e:
+        print(f"[CrossRef] Failed: {e}")
+    return []
+
+
+def _fetch_arxiv(query: str, limit: int) -> list:
+    try:
+        arxiv_url = (
+            f"https://export.arxiv.org/api/query"
+            f"?search_query=all:{requests.utils.quote(query)}&start=0&max_results={limit}"
+        )
+        response = requests.get(arxiv_url, timeout=20)
         root = ET.fromstring(response.text)
         ns = {"atom": "http://www.w3.org/2005/Atom"}
         papers = []
         for entry in root.findall("atom:entry", ns):
+            title_el = entry.find("atom:title", ns)
+            pub_el = entry.find("atom:published", ns)
+            summary_el = entry.find("atom:summary", ns)
+            id_el = entry.find("atom:id", ns)
+            if title_el is None:
+                continue
             papers.append({
-                "title": entry.find("atom:title", ns).text.strip().replace("\n", " "),
-                "authors": [a.find("atom:name", ns).text for a in entry.findall("atom:author", ns)],
-                "year": int(entry.find("atom:published", ns).text[:4]),
-                "abstract": entry.find("atom:summary", ns).text.strip().replace("\n", " "),
-                "url": entry.find("atom:id", ns).text,
-                "pdf": next((l.get("href") for l in entry.findall("atom:link", ns) if l.get("title") == "pdf" or l.get("type") == "application/pdf"), ""),
+                "title": title_el.text.strip().replace("\n", " "),
+                "authors": [
+                    a.find("atom:name", ns).text
+                    for a in entry.findall("atom:author", ns)
+                    if a.find("atom:name", ns) is not None
+                ],
+                "year": int(pub_el.text[:4]) if pub_el is not None else None,
+                "abstract": summary_el.text.strip().replace("\n", " ") if summary_el is not None else "",
+                "url": id_el.text if id_el is not None else "",
+                "pdf": next(
+                    (l.get("href") for l in entry.findall("atom:link", ns)
+                     if l.get("title") == "pdf" or l.get("type") == "application/pdf"),
+                    None,
+                ),
                 "citations": 0,
-                "source": "arXiv"
+                "source": "arXiv",
             })
         return papers
-    except: return []
+    except Exception as e:
+        print(f"[arXiv] Failed: {e}")
+    return []
+
+
+def get_academic_papers(query: str, limit: int = 10):
+    """Kept for backward compatibility — sync wrapper."""
+    ss = _fetch_semantic_scholar(query, limit)
+    cr = _fetch_crossref(query, limit)
+    ax = _fetch_arxiv(query, limit)
+    return _merge_papers(ss, cr, ax)
+
+
+def _merge_papers(*sources) -> list:
+    seen: set = set()
+    merged = []
+    for source_list in sources:
+        for p in source_list:
+            key = p["title"].lower().strip()
+            if key not in seen:
+                seen.add(key)
+                merged.append(p)
+    return merged
 
 def get_youtube_videos(topic: str, limit: int = 3):
     if not YOUTUBE_API_KEY: return []
@@ -189,31 +300,235 @@ def get_dictionary_definitions(words: list, context_snippet: str):
 # --- Endpoints ---
 
 @app.post("/auth/signup")
-async def signup(username: str = Form(...), password: str = Form(...)):
-    existing_user = await db.users.find_one({"username": username})
-    if existing_user:
+async def signup(
+    username: str = Form(...),
+    password: str = Form(...),
+    email: str = Form(...),
+):
+    # Check for existing username or email
+    if await db.users.find_one({"username": username}):
         raise HTTPException(status_code=400, detail="Username already registered")
-    
+    if await db.users.find_one({"email": email}):
+        raise HTTPException(status_code=400, detail="Email already registered")
+
     user_obj = {
         "username": username,
+        "email": email.lower().strip(),
         "password": get_password_hash(password),
-        "created_at": datetime.now(timezone.utc)
+        "auth_provider": "local",
+        "created_at": datetime.now(timezone.utc),
     }
     await db.users.insert_one(user_obj)
-    return {"message": "User created successfully"}
+    return {"message": "Account created successfully"}
+
 
 @app.post("/auth/login")
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     user = await db.users.find_one({"username": form_data.username})
     if not user or not verify_password(form_data.password, user["password"]):
         raise HTTPException(status_code=400, detail="Incorrect username or password")
-    
+
     access_token = create_access_token(data={"sub": user["username"]})
     return {"access_token": access_token, "token_type": "bearer"}
 
+
+@app.post("/auth/forgot-password")
+async def forgot_password(email: str = Form(...)):
+    user = await db.users.find_one({"email": email.lower().strip()})
+    # Always return 200 so we don't leak whether an email exists
+    if not user:
+        return {"message": "If that email is registered, a new password has been sent."}
+
+    # Block if SMTP is not configured
+    if not SMTP_USER or not SMTP_PASSWORD:
+        raise HTTPException(
+            status_code=500,
+            detail="Email service is not configured. Please contact the administrator."
+        )
+
+    # Generate a secure random temporary password
+    alphabet = string.ascii_letters + string.digits
+    temp_password = "".join(secrets.choice(alphabet) for _ in range(12))
+
+    # Hash and save it BEFORE trying to send email
+    await db.users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"password": get_password_hash(temp_password)}}
+    )
+
+    # Send email via SMTP
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "AutoLearn AI — Your Temporary Password"
+        msg["From"] = SMTP_USER
+        msg["To"] = email
+
+        html_body = f"""
+        <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border-radius:16px;background:#f9fafb;">
+          <h2 style="color:#6366f1;margin-bottom:8px;">AutoLearn AI</h2>
+          <p>Hi <strong>{user['username']}</strong>,</p>
+          <p>Here is your temporary password. Please log in and change it immediately.</p>
+          <div style="background:#ede9fe;border-radius:12px;padding:20px;text-align:center;font-size:22px;
+                      font-weight:bold;letter-spacing:2px;color:#4f46e5;margin:24px 0;">
+            {temp_password}
+          </div>
+          <p style="color:#6b7280;font-size:13px;">
+            If you did not request this, please ignore this email.
+          </p>
+        </div>
+        """
+        msg.attach(MIMEText(html_body, "html"))
+
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.sendmail(SMTP_USER, email, msg.as_string())
+
+        print(f"[SMTP] Password reset email sent to {email}")
+    except smtplib.SMTPAuthenticationError:
+        print("[SMTP Error] Authentication failed — check SMTP_USER and SMTP_PASSWORD (Gmail requires an App Password)")
+        raise HTTPException(
+            status_code=500,
+            detail="Email authentication failed. Gmail requires an App Password, not your regular password. "
+                   "Go to myaccount.google.com → Security → App Passwords to generate one."
+        )
+    except smtplib.SMTPException as e:
+        print(f"[SMTP Error] {e}")
+        raise HTTPException(status_code=500, detail=f"SMTP error: {str(e)}")
+    except Exception as e:
+        print(f"[Email Error] {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
+
+    return {"message": "If that email is registered, a new password has been sent."}
+
+
+@app.post("/auth/google")
+async def google_signin(token: str = Form(...)):
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=500, detail="Google Sign-In is not configured on this server.")
+
+    try:
+        idinfo = google_id_token.verify_oauth2_token(
+            token,
+            google_requests.Request(),
+            GOOGLE_CLIENT_ID,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=f"Invalid Google token: {e}")
+
+    google_id = idinfo["sub"]
+    email = idinfo.get("email", "").lower().strip()
+    name = idinfo.get("name") or idinfo.get("given_name") or email.split("@")[0]
+
+    # Find or create the user
+    user = await db.users.find_one({"google_id": google_id})
+    if not user:
+        # Also check if same email exists (local account) — link it
+        user = await db.users.find_one({"email": email})
+        if user:
+            await db.users.update_one(
+                {"_id": user["_id"]},
+                {"$set": {"google_id": google_id, "auth_provider": "google"}}
+            )
+        else:
+            # Brand new user via Google
+            username = name.replace(" ", "_").lower()
+            # Ensure username uniqueness
+            base, counter = username, 1
+            while await db.users.find_one({"username": username}):
+                username = f"{base}_{counter}"
+                counter += 1
+
+            user_obj = {
+                "username": username,
+                "email": email,
+                "password": None,
+                "google_id": google_id,
+                "auth_provider": "google",
+                "created_at": datetime.now(timezone.utc),
+            }
+            result = await db.users.insert_one(user_obj)
+            user = await db.users.find_one({"_id": result.inserted_id})
+
+    access_token = create_access_token(data={"sub": user["username"]})
+    return {"access_token": access_token, "token_type": "bearer", "username": user["username"]}
+
+@app.get("/auth/profile")
+async def get_profile(username: str = Depends(get_current_user)):
+    user = await db.users.find_one({"username": username})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {
+        "username": user["username"],
+        "email": user.get("email", ""),
+        "auth_provider": user.get("auth_provider", "local"),
+    }
+
+
+@app.put("/auth/profile")
+async def update_profile(
+    new_username: str = Form(None),
+    new_email: str = Form(None),
+    new_password: str = Form(None),
+    current_password: str = Form(None),
+    username: str = Depends(get_current_user),
+):
+    user = await db.users.find_one({"username": username})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    updates: dict = {}
+
+    # --- Username change ---
+    if new_username and new_username != username:
+        if await db.users.find_one({"username": new_username}):
+            raise HTTPException(status_code=400, detail="Username already taken")
+        updates["username"] = new_username
+
+    # --- Email change ---
+    if new_email and new_email.lower().strip() != user.get("email", ""):
+        if await db.users.find_one({"email": new_email.lower().strip()}):
+            raise HTTPException(status_code=400, detail="Email already in use")
+        updates["email"] = new_email.lower().strip()
+
+    # --- Password change ---
+    if new_password:
+        # For local accounts, require current password verification
+        if user.get("auth_provider", "local") == "local" and user.get("password"):
+            if not current_password:
+                raise HTTPException(status_code=400, detail="Current password is required to set a new password")
+            if not verify_password(current_password, user["password"]):
+                raise HTTPException(status_code=400, detail="Current password is incorrect")
+        updates["password"] = get_password_hash(new_password)
+
+    if not updates:
+        return {"message": "No changes made", "username": username}
+
+    await db.users.update_one({"username": username}, {"$set": updates})
+
+    # Issue a fresh token if username changed
+    final_username = updates.get("username", username)
+    new_token = create_access_token(data={"sub": final_username})
+    return {
+        "message": "Profile updated successfully",
+        "username": final_username,
+        "access_token": new_token,
+        "token_type": "bearer",
+    }
+
+
+
 @app.get("/research/search")
 async def search_research(q: str):
-    return {"papers": get_academic_papers(q)}
+    # Fetch all three sources in parallel — don't wait for the slow ones sequentially
+    ss_task = asyncio.to_thread(_fetch_semantic_scholar, q, 10)
+    cr_task = asyncio.to_thread(_fetch_crossref, q, 10)
+    ax_task = asyncio.to_thread(_fetch_arxiv, q, 10)
+    ss_results, cr_results, ax_results = await asyncio.gather(ss_task, cr_task, ax_task)
+    papers = _merge_papers(ss_results, cr_results, ax_results)
+    return {"papers": papers}
 
 @app.post("/chat")
 async def chat(message: str = Form(""), context: str = Form("")):

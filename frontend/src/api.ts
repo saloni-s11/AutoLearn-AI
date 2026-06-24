@@ -140,7 +140,8 @@ export const generateExam = async (
   content: string,
   examType: string,
   difficulty: string,
-  numberOfQuestions: number
+  numberOfQuestions: number,
+  askedQuestions: string[] = []
 ) => {
   try {
     const response = await fetch("http://localhost:8000/exam/generate", {
@@ -153,6 +154,7 @@ export const generateExam = async (
         exam_type: examType,
         difficulty,
         number_of_questions: numberOfQuestions,
+        asked_questions: askedQuestions,
       }),
     });
     if (!response.ok) throw new Error("Failed to generate exam");

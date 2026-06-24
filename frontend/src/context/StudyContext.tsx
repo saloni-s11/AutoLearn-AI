@@ -36,14 +36,28 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [currentSession, setCurrentSessionState] = useState<Session | null>(null);
   const [user, setUser] = useState<string | null>(localStorage.getItem("study_user"));
   const [token, setToken] = useState<string | null>(localStorage.getItem("study_token"));
-  const [quizStats, setQuizStats] = useState<QuizStats>(() => {
+
+  // Helper: per-user localStorage key
+  const quizStatsKey = (username: string) => `quiz_stats:${username}`;
+
+  const loadQuizStats = (username: string | null): QuizStats => {
+    if (!username) return { totalCorrect: 0, totalQuestions: 0 };
     try {
-      const stored = localStorage.getItem("quiz_stats");
+      const stored = localStorage.getItem(quizStatsKey(username));
       return stored ? JSON.parse(stored) : { totalCorrect: 0, totalQuestions: 0 };
     } catch {
       return { totalCorrect: 0, totalQuestions: 0 };
     }
-  });
+  };
+
+  const [quizStats, setQuizStats] = useState<QuizStats>(() =>
+    loadQuizStats(localStorage.getItem("study_user"))
+  );
+
+  // Reload quiz stats whenever the logged-in user changes
+  useEffect(() => {
+    setQuizStats(loadQuizStats(user));
+  }, [user]);
 
   const fetchSessions = async (authToken: string) => {
     try {
@@ -73,23 +87,28 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setUser(username);
     localStorage.setItem("study_token", newToken);
     localStorage.setItem("study_user", username);
+    // Load this user's quiz stats immediately on login
+    setQuizStats(loadQuizStats(username));
   };
 
   const logout = () => {
     setToken(null);
     setUser(null);
     setSessions([]);
+    setCurrentSessionState(null);
+    setQuizStats({ totalCorrect: 0, totalQuestions: 0 });
     localStorage.removeItem("study_token");
     localStorage.removeItem("study_user");
   };
 
   const recordQuizResult = (correct: number, total: number) => {
+    if (!user) return;
     setQuizStats(prev => {
       const updated = {
         totalCorrect: prev.totalCorrect + correct,
         totalQuestions: prev.totalQuestions + total,
       };
-      localStorage.setItem("quiz_stats", JSON.stringify(updated));
+      localStorage.setItem(quizStatsKey(user), JSON.stringify(updated));
       return updated;
     });
   };
