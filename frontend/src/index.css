@@ -4,7 +4,43 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Global rem scale — desktop-first, like Notion / Linear / VS Code.
+ * Setting font-size on <html> scales every rem unit proportionally:
+ * padding, gaps, border-radius, font sizes — all shrink together.
+ *
+ *  mobile  < 768px  → 14px  (87.5% of 16px)
+ *  tablet  ≥ 768px  → 13px  (81.25%)
+ *  desktop ≥ 1024px → 12.5px (78.125%)  ← main target
+ *  wide    ≥ 1440px → 13px  (81.25%)
+ *
+ * At 12.5px:  text-sm=10.5px  text-base=12.5px  text-lg=14px
+ *             text-3xl=22.5px  text-4xl=27px  text-5xl=36px→capped below
+ */
+html {
+  font-size: 87.5%;   /* 14px — mobile */
+}
+
+@media (min-width: 768px) {
+  html { font-size: 81.25%; }  /* 13px — tablet */
+}
+
+@media (min-width: 1024px) {
+  html { font-size: 78.125%; } /* 12.5px — desktop */
+}
+
+@media (min-width: 1440px) {
+  html { font-size: 81.25%; }  /* 13px — wide */
+}
+
+/* Cap the very largest heading sizes so they don't dominate on desktop */
+@media (min-width: 1024px) {
+  .text-5xl { font-size: 2rem   !important; }  /* ~25px at 12.5px base */
+  .text-4xl { font-size: 1.6rem !important; }  /* ~20px */
+}
+
 @layer base {
+
   :root {
     --background: 230 25% 97%;
     --foreground: 230 25% 10%;
@@ -205,6 +241,10 @@
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
+.animate-bounce-slow {
+  animation: float 4s ease-in-out infinite;
+}
+
 .perspective-1000 {
   perspective: 1000px;
 }
@@ -216,3 +256,7 @@
 .rotate-y-180 {
   transform: rotateY(180deg);
 }
+
+/* Hide scrollbar while keeping scroll functionality */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
